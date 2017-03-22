@@ -70,7 +70,7 @@ test:
       which itamae 
     - |
       # [TEST] Serverspec is installed.
-      which serverspec
+      which rake
     - |
       # [TEST] Packer is installed.
       which packer
