@@ -38,6 +38,9 @@ dependencies:
       # Setup Itamae
       gem install itamae
     - |
+      # Setup Serverspec
+      gem install serverspec
+    - |
       # Setup Packer
       if [[ ! -f ~/.local/bin/packer ]]; then
         mkdir -p ~/.local/bin
@@ -65,6 +68,9 @@ test:
     - |
       # [TEST] Itamae is installed.
       which itamae 
+    - |
+      # [TEST] Serverspec is installed.
+      which serverspec
     - |
       # [TEST] Packer is installed.
       which packer
