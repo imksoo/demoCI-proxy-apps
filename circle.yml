@@ -1,0 +1,115 @@
+general:
+  branches:
+    only:
+      - master
+      - /environment\/.*/
+
+machine:
+  timezone: Asia/Tokyo
+  environment:
+    PATH: $HOME/.local/bin:$PATH
+    AWS_DEFAULT_REGION: us-west-2
+    PACKER_VERSION: 0.12.3
+
+dependencies:
+  override:
+    - |
+      # Setup AWS CLI
+      #sudo pip install awscli
+    - |
+      # Configure region
+      aws configure set default.region ${AWS_DEFAULT_REGION}
+    - |
+      # Configure AWS access keys - piano-proxy-dev01
+      aws configure set aws_access_key_id ${AWS_ACCESS_KEY_ID_DEV} --profile piano-proxy-dev01
+      aws configure set aws_secret_access_key ${AWS_SECRET_ACCESS_KEY_DEV} --profile piano-proxy-dev01
+      aws configure set region ${AWS_DEFAULT_REGION} --profile piano-proxy-dev01
+    - |
+      # Configure AWS access keys - piano-proxy-stg01
+      aws configure set aws_access_key_id ${AWS_ACCESS_KEY_ID_STG} --profile piano-proxy-stg01
+      aws configure set aws_secret_access_key ${AWS_SECRET_ACCESS_KEY_STG} --profile piano-proxy-stg01
+      aws configure set region ${AWS_DEFAULT_REGION} --profile piano-proxy-stg01
+    - |
+      # Configure AWS access keys - piano-proxy-prd01
+      aws configure set aws_access_key_id ${AWS_ACCESS_KEY_ID_PRD} --profile piano-proxy-prd01
+      aws configure set aws_secret_access_key ${AWS_SECRET_ACCESS_KEY_PRD} --profile piano-proxy-prd01
+      aws configure set region ${AWS_DEFAULT_REGION} --profile piano-proxy-prd01
+    - |
+      # Setup Itamae
+      gem install itamae
+    - |
+      # Setup Packer
+      if [[ ! -f ~/.local/bin/packer ]]; then
+        mkdir -p ~/.local/bin
+        (
+          cd ~/.local/bin
+          wget "https://releases.hashicorp.com/packer/${PACKER_VERSION}/packer_${PACKER_VERSION}_linux_amd64.zip"
+          unzip *.zip
+          rm *.zip
+        )
+      fi
+  cache_directories:
+    - ~/.local/bin
+
+test:
+  override:
+    - |
+      # [TEST] AWS CLI is installed.
+      which aws
+    - |
+      # [TEST] AWS Credentials.
+      aws configure list
+      aws configure list --profile piano-proxy-dev01
+      aws configure list --profile piano-proxy-stg01
+      aws configure list --profile piano-proxy-prd01
+    - |
+      # [TEST] Itamae is installed.
+      which itamae 
+    - |
+      # [TEST] Packer is installed.
+      which packer
+    - |
+      # [TEST] Packer validate
+      case ${CIRCLE_BRANCH} in
+        "environment/development")
+          [ -d Packer/environment/development ] && ( cd Packer/environment/development ; make test ) || true
+          ;;
+        "environment/staging")
+          [ -d Packer/environment/staging ]     && ( cd Packer/environment/staging     ; make test ) || true
+          ;;
+        "environment/production")
+          [ -d Packer/environment/production ]  && ( cd Packer/environment/production  ; make test ) || true
+          ;;
+        "master")
+          [ -d Packer/environment/development ] && ( cd Packer/environment/development ; make test ) || true
+          [ -d Packer/environment/staging ]     && ( cd Packer/environment/staging     ; make test ) || true
+          [ -d Packer/environment/production ]  && ( cd Packer/environment/production  ; make test ) || true
+          ;;
+      esac
+
+deployment:
+  master:
+    branch: master
+    commands:
+      - |
+        # [DEPLOY] branch master does not any deployment.
+        echo "Test stage is all succeeded."
+  production:
+    branch: environment/production
+    commands:
+      - |
+        # [DEPLOY] Packer build
+        [ -d Packer/environment/production ]  && ( cd Packer/environment/production  ; make deploy ) || true
+  staging:
+    branch: environment/staging
+    commands:
+      - |
+        # [DEPLOY] Packer build
+        [ -d Packer/environment/staging ]     && ( cd Packer/environment/staging     ; make deploy ) || true
+  development:
+    branch: environment/development
+    commands:
+      - |
+        # [DEPLOY] Packer build
+        [ -d Packer/environment/development ] && ( cd Packer/environment/development ; make deploy ) || true
+
