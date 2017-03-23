@@ -1,0 +1,59 @@
+{
+    "variables": {
+        "source_ami_id": "ami-7ac6491a",
+        "environment": "production",
+        "os_name": "Ubuntu",
+        "os_version": "16.04",
+        "middleware_description": "ApacheForwardProxy",
+        "vpc_id": "vpc-5f430038",
+        "subnet_id": "subnet-e850e3a1",
+        "security_group_id": "sg-8c263ef4",
+        "iam_instance_profile": "terraform-005d5c6cc11c2c5d924e7f9e1b",
+        "user_data_file": "./ami-proxy-user-data.yaml"
+    },
+    "builders": [
+        {
+            "type": "amazon-ebs",
+            "region": "us-west-2",
+            "source_ami": "{{user `source_ami_id`}}",
+            "instance_type": "t2.large",
+            "ssh_username": "ubuntu",
+            "ssh_timeout": "10m",
+            "ssh_pty": "true",
+            "associate_public_ip_address": true,
+            "vpc_id": "{{user `vpc_id`}}",
+            "subnet_id": "{{user `subnet_id`}}",
+            "security_group_id": "{{user `security_group_id`}}",
+            "iam_instance_profile": "{{user `iam_instance_profile`}}",
+            "user_data_file": "{{user `user_data_file`}}",
+            "ami_name": "{{user `os_name`|clean_ami_name}}-{{user `os_version`|clean_ami_name}}-{{user `middleware_description`|clean_ami_name}}-{{isotime \"20060102-0304\"|clean_ami_name}}",
+            "ami_description": "{{user `os_name`}} {{user `os_version`}} {{user `middleware_description`}} {{isotime \"20060102-0304\"}}. Source AMI is {{user `source_ami_id`}}."
+        }
+    ],
+    "provisioners": [
+        {
+            "type": "shell",
+            "inline": [
+                "sudo apt-get update -y",
+                "sudo apt-get upgrade -y",
+                "sudo apt-get install -y apache2",
+                "cd /etc/apache2/mods-enabled ; sudo ln -s ../mods-available/proxy.load ./",
+                "cd /etc/apache2/mods-enabled ; sudo ln -s ../mods-available/proxy.conf ./",
+                "cd /etc/apache2/mods-enabled ; sudo ln -s ../mods-available/proxy_http.conf ./",
+                "cd /etc/apache2/mods-enabled ; sudo ln -s ../mods-available/proxy_connect.conf ./",
+                "sudo ls -lF /etc/apache2/mods-enabled",
+                "echo 'ProxyRequests on' >> /tmp/proxy.conf",
+                "echo 'ProxyVia on' >> /tmp/proxy.conf",
+                "echo '<Proxy *>' >> /tmp/proxy.conf",
+                "echo '  Order deny,allow' >> /tmp/proxy.conf",
+                "echo '  Deny from all' >> /tmp/proxy.conf",
+                "echo '  Allow from 10.0.0.0/8' >> /tmp/proxy.conf",
+                "echo '</Proxy>' >> /tmp/proxy.conf",
+                "sudo cp -p /tmp/proxy.conf /etc/apache2/sites-enabled/proxy.conf",
+                "sudo cat /etc/apache2/sites-enabled/proxy.conf",
+                "sudo systemctl enable apache2",
+                "sudo systemctl start apache2"
+            ]
+        }
+    ]
+}
